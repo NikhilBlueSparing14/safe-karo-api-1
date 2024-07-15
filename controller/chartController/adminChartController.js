@@ -1,43 +1,78 @@
-import UserModel from '../../models/adminModels/userProfileSchema.js';
+import Partner from "../../models/policyModel/motorpolicySchema.js";
+import moment from "moment";
 
-const getDateRange = (period) => {
-  const now = new Date();
-  let startDate;
-
-  switch (period) {
-    case 'weekly':
-      startDate = new Date(now.setDate(now.getDate() - 7));
-      break;
-    case 'monthly':
-      startDate = new Date(now.setMonth(now.getMonth() - 1));
-      break;
-    case 'yearly':
-      startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-      break;
-    default:
-      startDate = new Date(0);
-      break;
-  }
-
-  return { startDate, endDate: new Date() };
-};
-
-export const countPartnersByPeriod = async (req, res) => {
+export const getPartnersCount = async (req, res) => {
   try {
     const { period } = req.params;
-    const { startDate, endDate } = getDateRange(period);
+    let matchStage;
 
-    const count = await UserModel.countDocuments({
-      joiningDate: { $gte: startDate, $lte: endDate },
-    });
+    switch (period) {
+      case "weekly":
+        matchStage = {
+          $match: {
+            $or: [
+              {
+                joiningDate: {
+                  $gte: moment().startOf("week").toDate(),
+                  $lt: moment().endOf("week").toDate(),
+                },
+              },
+              {
+                joiningDate: moment().startOf("day").toDate(), // Check for partners who joined today
+              },
+            ],
+          },
+        };
+        break;
+
+      case "monthly":
+        matchStage = {
+          $match: {
+            joiningDate: {
+              $gte: moment().startOf("month").toDate(),
+              $lt: moment().endOf("month").toDate(),
+            },
+          },
+        };
+        break;
+
+      case "yearly":
+        matchStage = {
+          $match: {
+            joiningDate: {
+              $gte: moment().startOf("year").toDate(),
+              $lt: moment().endOf("year").toDate(),
+            },
+          },
+        };
+        break;
+
+      default:
+        return res.status(400).json({ message: "Invalid period specified" });
+    }
+
+    const count = await Partner.aggregate([
+      matchStage,
+      {
+        $group: {
+          _id: "$role", // Group by the role field assuming it exists in motorPolicySchema
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const formattedCounts = count.map((item) => ({
+      role: item._id || "Unknown Role",
+      count: item.count,
+    }));
 
     res.status(200).json({
       message: `Partners joined ${period}`,
-      period,
-      count,
-      status: 'success',
+      counts: formattedCounts,
+      status: "success",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message, status: 'error' });
+    console.error("Error fetching partners count:", error);
+    res.status(500).json({ message: "Error fetching partners count", error: error.message });
   }
 };
