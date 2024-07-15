@@ -49,6 +49,11 @@ import leadQuotation from "./routes/partnerRoutes/leadQuotationRoutes.js";
 import leadPayment from "./routes/partnerRoutes/leadPaymentRoutes.js";
 import testRoutes from "./routes/testRoutes.js";
 import path from "path"; // Import path to resolve the directory path
+
+// Chart
+import countPartnersByPeriod from './routes/chartRoutes/adminChartRoute.js';
+
+
 const app = express();
 const port = process.env.PORT;
 const DATABASE_URL = process.env.DATEBASE_URL;
@@ -58,6 +63,13 @@ app.use(cors());
 
 // Database Connection
 connectDB(DATABASE_URL);
+
+app.use(
+  fileUpload({
+    createParentPath: true, // Allow creating parent path if it doesn't exist
+  })
+);
+
 // if deployed successfully
 app.get("/", (req, res) => {
   res.send("backend api deployed successfully!!!!!");
@@ -94,11 +106,6 @@ app.use("/api/lead-payment", leadPayment);
 // testing
 // app.use("/api", testRoutes);
 
-app.use(
-  fileUpload({
-    createParentPath: true, // Allow creating parent path if it doesn't exist
-  })
-);
 
 // Load Routes
 app.use("/api/user", userRoutes);
@@ -175,14 +182,15 @@ app.use("/api/booking-dashboard", bookingDashboardRoutes);
 // activity logs
 app.use("/api/activityLog", activityLogRoutes);
 
-// ---------------------------------- Lead Routes --------------------------------------//
+// -------------------------------- Charts Route--------------------------------
+
+// partner count Weekly, Monthly, and Yearly
+app.use('/api/partner-count',countPartnersByPeriod);
 
 // Handle invalid routes
 //app.use(handleInvalidRoutes);
 
-//Add for acess the folder
 
-// Serve static files from the uploads directory
 const __dirname = path.resolve();
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
